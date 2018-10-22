@@ -32,7 +32,7 @@ int main() {
   // **** 1. Parsing **** // 
   
   // Getting file
-  ifstream file("simple4_n6.ttp");
+  ifstream file("fnl.ttp");
 
   string line; // Holds each line of the file
 
