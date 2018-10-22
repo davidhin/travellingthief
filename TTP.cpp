@@ -42,7 +42,7 @@ ostream &operator<<(ostream &os, Item* const &i) {
 bool output = false;
 
 // Constants
-int tau = 63 ; // TODO: Find a better value to set this to
+int tau = 1 ; // TODO: Find a better value to set this to
 
 // Globals
 int dimension;
@@ -83,15 +83,16 @@ double Z(vector<int>* tour, vector<double>* dist, vector<Item*>* packing_plan) {
     return minuend - rent*(subtrahend);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     // **** 1. Parsing **** //
 
+    ifstream file(argv[1]);
     string line; // Holds each line of the file
 
     char delim = '\n';
 
     for(int i=0; i<3; i++) {
-        getline(cin, line, delim);
+        getline(file, line);
     }
 
     // Dimension (number of cities)
@@ -101,44 +102,44 @@ int main() {
     ss.clear();
 
     // Number of items
-    getline(cin, line, delim);
+    getline(file, line);
     ss.str(line);
     ss >> temp >> temp >> temp >> itemNum;
     ss.clear();
 
     // Getting knapsack capaCity
-    getline(cin, line, delim);
+    getline(file, line);
     ss.str(line);
     ss >> temp >> temp >> temp >> ksc;
     ss.clear();
 
     // Min speed
-    getline(cin, line, delim);
+    getline(file, line);
     ss.str(line);
     ss >> temp >> temp >> minS;
     ss.clear();
 
     // Max speed
-    getline(cin, line, delim);
+    getline(file, line);
     ss.str(line);
     ss >> temp >> temp >> maxS;
     ss.clear();
 
     // Rent
-    getline(cin, line, delim);
+    getline(file, line);
     ss.str(line);
     ss >> temp >> temp >> rent;
     ss.clear();
 
     // Skipping extra lines
-    getline(cin, line, delim);
-    getline(cin, line, delim);
+    getline(file, line);
+    getline(file, line);
 
     // Parsing City coordinates into vector of City structs
     vector<City> cities;
     for(int i=0; i<dimension; i++) {
         City newC;
-        getline(cin, line, delim);
+        getline(file, line);
         ss.str(line);
         ss >> newC.index;
         ss >> newC.xCoord;
@@ -204,13 +205,13 @@ int main() {
     dist.push_back(temp1); // TODO: Is this correct? We want to push back, not replace the last distance
     // OLD dist[dist.size()-1] = temp1;
 
-    getline(cin, line, delim);
+    getline(file, line);
 
     // Parsing items
     vector<Item> items;
     for(int i=0; i<itemNum; i++) {
         Item newI;
-        getline(cin, line, delim);
+        getline(file, line);
         ss.str(line);
         ss >> newI.index;
         ss >> newI.profit;
@@ -320,8 +321,8 @@ int main() {
         if (W_curr + kth_item->weight <= W_cap) {
             P_curr.push_back(kth_item);
             W_curr += kth_item->weight;
-            //if (true) { // TODO We only put the mu limiter in once we use big sets
-            if (k % mu == 0) {
+            if (true) { // TODO We only put the mu limiter in once we use big sets
+            // if (k % mu == 0) {
                 double Z_curr = Z(&tour, &dist, &P_curr) ;
                 if (Z_curr < Z_best) {
                     P_curr = P_best ;
@@ -340,6 +341,13 @@ int main() {
     }
 
     if (output)  cout << "\nFinal Packing Plan: \n";
-    cout << tour << "\n" ;
-    cout << P_best << "\n" ;
+    ofstream outputFile;
+    outputFile.open("fnl_soln.ttp");
+    outputFile << tour << "\n" ;
+    outputFile << P_best << "\n" ;
+    outputFile.close();
+    
+    // Old couts - still use for testing
+    // cout << tour << "\n" ;
+    // cout << P_best << "\n" ;
 }
