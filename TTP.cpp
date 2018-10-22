@@ -28,9 +28,9 @@ struct Item {
   int city;
 };
 
-int main() { 
-  // **** 1. Parsing **** // 
-  
+int main() {
+  // **** 1. Parsing **** //
+
   // Getting file
   ifstream file("fnl.ttp");
 
@@ -157,7 +157,7 @@ int main() {
 
   getline(file, line);
 
-  // Parsing items 
+  // Parsing items
   vector<Item> items;
   for(int i=0; i<itemNum; i++) {
     Item newI;
@@ -170,21 +170,21 @@ int main() {
     items.push_back(newI);
     ss.clear();
   }
-  
+
   // **** 3. Algorithm 1 **** //
 
   // ** 0. Setup data structures ** //
   // TODO: I tried to do this whole thing without modifying
   // the original code above, meaning some parts are a bit dodgy
   // Calculate distance from City i to end
-  
+
   //TODO: We are given the cities with 1 indexing so lets
   //stick with that
   for (int i=0; i<tour.size(); i++) {
     tour[i]++;
   }
- 
-  // Create a vector of "distances to end of tour" 
+
+  // Create a vector of "distances to end of tour"
   vector<double> end_dists;
   for (int i=0; i<dist.size(); i++) {
     end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0));
@@ -192,13 +192,13 @@ int main() {
 
   // Printing
   cout << "Tour:\n" << tour << "\n\n";
-  cout << "Distances:\n" << dist << "\n\n"; 
+  cout << "Distances:\n" << dist << "\n\n";
   cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
 
   // Assign items to cities
   unordered_map<int, vector<Item*>> city_items;
   for (int i=0; i<items.size(); i++) {
-    city_items[items[i].city].push_back(&items[i]); 
+    city_items[items[i].city].push_back(&items[i]);
   }
 
   // Print city/item map
@@ -222,17 +222,19 @@ int main() {
 
     // Pointer to list of items at the city tour[i]
     vector<Item*> *current_items = &it->second;
-   
+
     // Add item to "full" item list
     for (int j=0; j<current_items->size(); j++) {
       Item* current_item = current_items->at(j);
       double score = current_item->profit / (current_item->weight * end_dists[j]);
       score_items.push_back(make_pair(score,current_item->index));
     }
-  } 
-  
+  }
+
   // ** b. Sort the items of M in non-decreasing order of their scores ** //
   cout << "Item Queue: " << "\n";
-  sort(rbegin(score_items), rend(score_items));
+  // My computer can't run this
+  // sort(rbegin(score_items), rend(score_items));
+  sort(score_items.begin(), score_items.end());
   cout << score_items << "\n";
 }
