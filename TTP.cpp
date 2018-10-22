@@ -29,32 +29,58 @@ struct Item {
 };
 
 // Print ItemPointer as the index
+//ostream &operator<<(ostream &os, Item* const &i) { 
+//    return os << "<id:" << i->index <<",city:" << i->city << ",weight:" << i->weight << "," <<"profit:" << i->profit << ">";
+//}
+
+// Print with only the index (used for submission) 
 ostream &operator<<(ostream &os, Item* const &i) { 
-    return os << "<id:" << i->index << ",weight:" << i->weight << ">";
+    return os << i->index;
 }
 
+// Output Enabled/disabled
+bool output = true;
+
 // Constants
-int tau = 3 ; // TODO: Find a better value to set this to
+int tau = 1 ; // TODO: Find a better value to set this to
 
 // Globals
 int dimension;
-float minS;
-float maxS;
+double minS;
+double maxS;
 int ksc;
-float rent;
+double rent;
 int itemNum;
 
+// Get total weight of all items in city, using packingplan vector
+// TODO: Find a more efficient way of doing this
+double city_weight(int city, vector<Item*>* packing_plan)
+{
+    int ret = 0;
+    for (int i = 0; i < (int)packing_plan->size(); i++)
+        if ((*packing_plan)[i]->city == city)
+            ret += (*packing_plan)[i]->weight ;
+    return ret ;
+}
+
 // Objective function
-double Z(vector<int>* tour, vector<Item*>* packing_plan) {
+double Z(vector<int>* tour, vector<double>* dist, vector<Item*>* packing_plan) {
     // Sum of all packed items
-    int minuend = 0;
+    double minuend = 0;
     for (int i = 0; i<(int)packing_plan->size(); i++)
         minuend += (*packing_plan)[i]->profit ;
     
     // Constant V
-    int v = v
+    double v = ( maxS - minS ) / ksc ;
 
-    return minuend;
+    // Amount that the thief pays for the knapsack rent
+    // i.e. The total travelling time along tour * Rent
+    // TODO: Check if the city weights actually works
+    double subtrahend = 0;
+    for(int i = 1; i < (int)(*dist).size(); i++)
+        subtrahend += (double)(*dist)[i] / (maxS - v*city_weight((*tour)[i], packing_plan)) ;
+
+    return minuend - rent*(subtrahend);
 }
 
 int main() {
@@ -127,7 +153,7 @@ int main() {
 
     // Store order of the cities in the tour and the distance to the next City
     vector<int> tour;
-    vector<int> dist;
+    vector<double> dist;
 
     // Adding first City to the tour
     tour.push_back(0);
@@ -135,11 +161,11 @@ int main() {
     cities[0].added = true;
 
     // For storing current closest City details
-    int lowDist;
+    double lowDist;
     int tempInd = 1;
     // Calculating distance variables
-    int temp1;
-    int temp2;
+    double temp1;
+    double temp2;
 
     // Distance formula
     // sqrt( (x1-x2)^2 + (y1-y2)^2 )
@@ -176,7 +202,8 @@ int main() {
     temp2 = pow(temp2, 2);
     temp1 = temp1 + temp2;
     temp1 = sqrt(temp1);
-    dist[dist.size()-1] = temp1;
+    dist.push_back(temp1); // TODO: Is this correct? We want to push back, not replace the last distance
+    // OLD dist[dist.size()-1] = temp1;
 
     getline(file, line);
 
@@ -210,13 +237,13 @@ int main() {
     // Create a vector of "distances to end of tour"
     vector<double> end_dists;
     for (int i=0; i<(int)dist.size(); i++) {
-        end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0));
+        end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0.0));
     }
 
     // Printing
-    cout << "Tour:\n" << tour << "\n\n";
-    cout << "Distances:\n" << dist << "\n\n";
-    cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
+    if (output) cout << "Tour:\n" << tour << "\n\n";
+    if (output) cout << "Distances:\n" << dist << "\n\n";
+    if (output) cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
 
     // Assign items to cities
     unordered_map<int, vector<Item*>> city_items;
@@ -225,15 +252,15 @@ int main() {
     }
 
     // Print city/item map
-    cout << "Mapped items to cities: " << "\n";
+    if (output) cout << "Mapped items to cities: " << "\n";
     for (auto i = city_items.begin(); i != city_items.end(); i++) {
-        cout << "City " << i->first << " items: ";
+        if (output) cout << "City " << i->first << " items: ";
         vector<int> temp;
         for (int j=0; j<(int)i->second.size(); j++)
             temp.push_back(i->second[j]->index);
-        cout << temp << "\n";
+        if (output) cout << temp << "\n";
     }
-    cout << "\n";
+    if (output) cout << "\n";
 
     // ** a. Compute score for each of the items ** //
     vector< pair<double, Item*> > score_items;
@@ -255,45 +282,48 @@ int main() {
     }
 
     // ** b. Sort the items of M in non-decreasing order of their scores ** //
-    cout << "Item Queue: " << "\n";
+    if (output) cout << "Item Queue: " << "\n";
     // My computer can't run this
     // sort(rbegin(score_items), rend(score_items));
     sort(score_items.begin(), score_items.end());
-    cout << score_items << "\n\n";
+    if (output) cout << score_items << "\n\n";
 
     // ** c. set the frequency mu = floor(m / tau) 
     int mu = floor(itemNum / tau) ;
-    cout << "We set mu = floor(itemNum / tau)=" << mu << " where tau=" << tau << " is a given constant.\n" ;
+    if (output) cout << "We set mu = floor(itemNum / tau)=" << mu << " where tau=" << tau << " is a given constant.\n" ;
 
     // ** d. Initialise the current packing plan P and current weight of bag = 0
     vector<Item*> P_curr ; 
-    int W_curr = 0, W_cap = ksc ;
-    cout << "P_curr = " << P_curr << " is the initialised packing plan (current)" << "\n" ;
-    cout << "W_curr = " << W_curr << " is the current weight of the packing plan, and" << "\n" 
+    double W_curr = 0, W_cap = ksc ;
+    if (output) cout << "P_curr = " << P_curr << " is the initialised packing plan (current)" << "\n" ;
+    if (output) cout << "W_curr = " << W_curr << " is the current weight of the packing plan, and" << "\n" 
              << "W_cap = " << W_cap << " is the capacity of the bag. \n\n";
  
     // ** e. Set the best packing plan P_best = empty
     vector<Item*> P_best ; 
-    cout << "We initialise an array to hold our best packing plan\nP_best = " << P_best << "\n\n" ;
+    if (output) cout << "We initialise an array to hold our best packing plan\nP_best = " << P_best << "\n\n" ;
 
     // ** f. Set the best objective value Z_best = -inf
-    int Z_best = INT_MIN ;
-    cout << "Z_best is the best objective value (so far)." << "\n";
-    cout << "Z_best = " << Z_best << "\n\n" ;
+    double Z_best = -0xfffffff ;
+    if (output) cout << "Z_best is the best objective value (so far)." << "\n";
+    if (output) cout << "Z_best = " << Z_best << "\n\n" ;
 
     // ** g. Set counters to iterate through the score_items
-    int k = 1, k_last = 1;
-    cout << "Counters k = k-th item in score_items, it starts at 1.\n" << 
-    "k_last also starts at 1, and is the last item that we added to the plan.\n\n" ;
+    int k = 0, k_last = 0;
+    if (output) cout << "Counters k = k-th item in score_items, it starts at 0.\n" << 
+    "k_last also starts at 0, and is the last item that we added to the plan.\n\n" ;
 
+    if (output) cout << "Objective function score: \n" ;
+    if (output) cout << Z_best << "\n";
     // ** h. Iterate through items k in the item queue 
-    while (W_curr < W_cap  && mu > 1) {
+    while (W_curr < W_cap && mu > 1 && k < itemNum) {
         Item* kth_item = score_items[k].second;
         if (W_curr + kth_item->weight <= W_cap) {
             P_curr.push_back(kth_item);
             W_curr += kth_item->weight;
-            if (k % mu == 0) {
-                int Z_curr = Z(&tour, &P_curr) ;
+            if (true) { // TODO We only put the mu limiter in once we use big sets
+            //if (k % mu == 0) {
+                double Z_curr = Z(&tour, &dist, &P_curr) ;
                 if (Z_curr < Z_best) {
                     P_curr = P_best ;
                     k = k_last ;
@@ -305,9 +335,12 @@ int main() {
                     Z_best = Z_curr ;
                 }
             } 
-            k++;
         }
+        if (output) cout << Z_best << "\n";
+        k++;
     }
     
+    if (output)  cout << "\nFinal Packing Plan: \n"; 
+    cout << tour << "\n" ;
     cout << P_best << "\n" ;
 }
