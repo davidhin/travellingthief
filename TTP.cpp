@@ -14,227 +14,300 @@ using namespace std;
 
 // Encapsulates a single City
 struct City {
-  int index;
-  int xCoord;
-  int yCoord;
-  bool added; // If City has been added to
+    int index;
+    int xCoord;
+    int yCoord;
+    bool added; // If City has been added to
 };
 
 // Encapsulates a single Item
 struct Item {
-  int index;
-  double profit;
-  double weight;
-  int city;
+    int index;
+    double profit;
+    double weight;
+    int city;
 };
 
+// Print ItemPointer as the index
+ostream &operator<<(ostream &os, Item* const &i) { 
+    return os << "<id:" << i->index << ",weight:" << i->weight << ">";
+}
+
+// Constants
+int tau = 3 ; // TODO: Find a better value to set this to
+
+// Globals
+int dimension;
+float minS;
+float maxS;
+int ksc;
+float rent;
+int itemNum;
+
+// Objective function
+double Z(vector<int>* tour, vector<Item*>* packing_plan) {
+    // Sum of all packed items
+    int minuend = 0;
+    for (int i = 0; i<(int)packing_plan->size(); i++)
+        minuend += (*packing_plan)[i]->profit ;
+    
+    // Constant V
+    int v = v
+
+    return minuend;
+}
+
 int main() {
-  // **** 1. Parsing **** //
+    // **** 1. Parsing **** //
 
-  // Getting file
-  ifstream file("fnl.ttp");
+    // Getting file
+    ifstream file("simple4_n6.ttp");
 
-  string line; // Holds each line of the file
+    string line; // Holds each line of the file
 
-  for(int i=0; i<3; i++) {
-    getline(file, line);
-  }
+    for(int i=0; i<3; i++) {
+        getline(file, line);
+    }
 
-  // Dimension (number of cities)
-  string temp;
-  int dimension;
-  istringstream ss(line);
-  ss >> temp >> dimension;
-  ss.clear();
+    // Dimension (number of cities)
+    string temp;
+    istringstream ss(line);
+    ss >> temp >> dimension;
+    ss.clear();
 
-  // Number of items
-  int itemNum;
-  getline(file, line);
-  ss.str(line);
-  ss >> temp >> temp >> temp >> itemNum;
-  ss.clear();
-
-  // Getting knapsack capaCity
-  int ksc;
-  getline(file, line);
-  ss.str(line);
-  ss >> temp >> temp >> temp >> ksc;
-  ss.clear();
-
-  // Min speed
-  float minS;
-  getline(file, line);
-  ss.str(line);
-  ss >> temp >> temp >> minS;
-  ss.clear();
-
-  // Max speed
-  float maxS;
-  getline(file, line);
-  ss.str(line);
-  ss >> temp >> temp >> maxS;
-  ss.clear();
-
-  // Rent
-  float rent;
-  getline(file, line);
-  ss.str(line);
-  ss >> temp >> temp >> rent;
-  ss.clear();
-
-  // Skipping extra lines
-  getline(file, line);
-  getline(file, line);
-
-  // Parsing City coordinates into vector of City structs
-  vector<City> cities;
-  for(int i=0; i<dimension; i++) {
-    City newC;
+    // Number of items
     getline(file, line);
     ss.str(line);
-    ss >> newC.index;
-    ss >> newC.xCoord;
-    ss >> newC.yCoord;
-    newC.added = false;
-    cities.push_back(newC);
+    ss >> temp >> temp >> temp >> itemNum;
     ss.clear();
-  }
 
-  // **** 2. Nearest Neighbours Algorithm **** //
+    // Getting knapsack capaCity
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> temp >> ksc;
+    ss.clear();
 
-  // Store order of the cities in the tour and the distance to the next City
-  vector<int> tour;
-  vector<int> dist;
+    // Min speed
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> minS;
+    ss.clear();
 
-  // Adding first City to the tour
-  tour.push_back(0);
-  dist.push_back(0);
-  cities[0].added = true;
+    // Max speed
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> maxS;
+    ss.clear();
 
-  // For storing current closest City details
-  int lowDist;
-  int tempInd = 1;
-  // Calculating distance variables
-  int temp1;
-  int temp2;
+    // Rent
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> rent;
+    ss.clear();
 
-  // Distance formula
-  // sqrt( (x1-x2)^2 + (y1-y2)^2 )
+    // Skipping extra lines
+    getline(file, line);
+    getline(file, line);
 
-  // Getting tour
-  for(int l=1; l<dimension; l++) {
-    lowDist = INT_MAX; // reset distance
-    for(int k=1; k<dimension; k++) {
-      if(cities[k].added) { // If City is already in tour
-        continue;
-      }else{
-        // Calculate distance
-        temp1 = cities[tour[l-1]].xCoord - cities[k].xCoord;
-        temp2 = cities[tour[l-1]].yCoord - cities[k].yCoord;
-        temp1 = pow(temp1, 2);
-        temp2 = pow(temp2, 2);
-        temp1 = temp1 + temp2;
-        temp1 = sqrt(temp1);
-        if(temp1<lowDist) {
-          lowDist = temp1;
-          tempInd = k;
+    // Parsing City coordinates into vector of City structs
+    vector<City> cities;
+    for(int i=0; i<dimension; i++) {
+        City newC;
+        getline(file, line);
+        ss.str(line);
+        ss >> newC.index;
+        ss >> newC.xCoord;
+        ss >> newC.yCoord;
+        newC.added = false;
+        cities.push_back(newC);
+        ss.clear();
+    }
+
+    // **** 2. Nearest Neighbours Algorithm **** //
+
+    // Store order of the cities in the tour and the distance to the next City
+    vector<int> tour;
+    vector<int> dist;
+
+    // Adding first City to the tour
+    tour.push_back(0);
+    dist.push_back(0);
+    cities[0].added = true;
+
+    // For storing current closest City details
+    int lowDist;
+    int tempInd = 1;
+    // Calculating distance variables
+    int temp1;
+    int temp2;
+
+    // Distance formula
+    // sqrt( (x1-x2)^2 + (y1-y2)^2 )
+
+    // Getting tour
+    for(int l=1; l<dimension; l++) {
+        lowDist = INT_MAX; // reset distance
+        for(int k=1; k<dimension; k++) {
+            if(cities[k].added) { // If City is already in tour
+                continue;
+            }else{
+                // Calculate distance
+                temp1 = cities[tour[l-1]].xCoord - cities[k].xCoord;
+                temp2 = cities[tour[l-1]].yCoord - cities[k].yCoord;
+                temp1 = pow(temp1, 2);
+                temp2 = pow(temp2, 2);
+                temp1 = temp1 + temp2;
+                temp1 = sqrt(temp1);
+                if(temp1<lowDist) {
+                    lowDist = temp1;
+                    tempInd = k;
+                }
+            }
         }
-      }
+        tour.push_back(tempInd);
+        dist.push_back(lowDist);
+        cities[tempInd].added = true;
     }
-    tour.push_back(tempInd);
-    dist.push_back(lowDist);
-    cities[tempInd].added = true;
-  }
 
-  // Calculate distance from last City to first
-  temp1 = cities[tour[0]].xCoord - cities[tour[tour.size()-1]].xCoord;
-  temp2 = cities[tour[0]].yCoord - cities[tour[tour.size()-1]].yCoord;
-  temp1 = pow(temp1, 2);
-  temp2 = pow(temp2, 2);
-  temp1 = temp1 + temp2;
-  temp1 = sqrt(temp1);
-  dist[dist.size()-1] = temp1;
+    // Calculate distance from last City to first
+    temp1 = cities[tour[0]].xCoord - cities[tour[tour.size()-1]].xCoord;
+    temp2 = cities[tour[0]].yCoord - cities[tour[tour.size()-1]].yCoord;
+    temp1 = pow(temp1, 2);
+    temp2 = pow(temp2, 2);
+    temp1 = temp1 + temp2;
+    temp1 = sqrt(temp1);
+    dist[dist.size()-1] = temp1;
 
-  getline(file, line);
-
-  // Parsing items
-  vector<Item> items;
-  for(int i=0; i<itemNum; i++) {
-    Item newI;
     getline(file, line);
-    ss.str(line);
-    ss >> newI.index;
-    ss >> newI.profit;
-    ss >> newI.weight;
-    ss >> newI.city;
-    items.push_back(newI);
-    ss.clear();
-  }
 
-  // **** 3. Algorithm 1 **** //
-
-  // ** 0. Setup data structures ** //
-  // TODO: I tried to do this whole thing without modifying
-  // the original code above, meaning some parts are a bit dodgy
-  // Calculate distance from City i to end
-
-  //TODO: We are given the cities with 1 indexing so lets
-  //stick with that
-  for (int i=0; i<tour.size(); i++) {
-    tour[i]++;
-  }
-
-  // Create a vector of "distances to end of tour"
-  vector<double> end_dists;
-  for (int i=0; i<dist.size(); i++) {
-    end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0));
-  }
-
-  // Printing
-  cout << "Tour:\n" << tour << "\n\n";
-  cout << "Distances:\n" << dist << "\n\n";
-  cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
-
-  // Assign items to cities
-  unordered_map<int, vector<Item*>> city_items;
-  for (int i=0; i<items.size(); i++) {
-    city_items[items[i].city].push_back(&items[i]);
-  }
-
-  // Print city/item map
-  cout << "Mapped items to cities: " << "\n";
-  for (auto i = city_items.begin(); i != city_items.end(); i++) {
-    cout << "City " << i->first << " items: ";
-    vector<int> temp;
-    for (int j=0; j<i->second.size(); j++)
-      temp.push_back(i->second[j]->index);
-    cout << temp << "\n";
-  }
-  cout << "\n";
-
-  // ** a. Compute score for each of the items ** //
-  vector< pair<double, int> > score_items;
-
-  for (int i=0; i<tour.size(); i++) {
-    // Get list of items at city tour[i]
-    unordered_map<int, vector<Item*>>::iterator it = city_items.find(tour[i]+1);
-    if (it == city_items.end()) continue;
-
-    // Pointer to list of items at the city tour[i]
-    vector<Item*> *current_items = &it->second;
-
-    // Add item to "full" item list
-    for (int j=0; j<current_items->size(); j++) {
-      Item* current_item = current_items->at(j);
-      double score = current_item->profit / (current_item->weight * end_dists[j]);
-      score_items.push_back(make_pair(score,current_item->index));
+    // Parsing items
+    vector<Item> items;
+    for(int i=0; i<itemNum; i++) {
+        Item newI;
+        getline(file, line);
+        ss.str(line);
+        ss >> newI.index;
+        ss >> newI.profit;
+        ss >> newI.weight;
+        ss >> newI.city;
+        items.push_back(newI);
+        ss.clear();
     }
-  }
 
-  // ** b. Sort the items of M in non-decreasing order of their scores ** //
-  cout << "Item Queue: " << "\n";
-  // My computer can't run this
-  // sort(rbegin(score_items), rend(score_items));
-  sort(score_items.begin(), score_items.end());
-  cout << score_items << "\n";
+    // **** 3. Algorithm 1 **** //
+
+    // ** 0. Setup data structures ** //
+    // TODO: I tried to do this whole thing without modifying
+    // the original code above, meaning some parts are a bit dodgy
+    // Calculate distance from City i to end
+
+    //TODO: We are given the cities with 1 indexing so lets
+    //stick with that
+    for (int i=0; i<(int)tour.size(); i++) {
+        tour[i]++;
+    }
+
+    // Create a vector of "distances to end of tour"
+    vector<double> end_dists;
+    for (int i=0; i<(int)dist.size(); i++) {
+        end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0));
+    }
+
+    // Printing
+    cout << "Tour:\n" << tour << "\n\n";
+    cout << "Distances:\n" << dist << "\n\n";
+    cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
+
+    // Assign items to cities
+    unordered_map<int, vector<Item*>> city_items;
+    for (int i=0; i<(int)items.size(); i++) {
+        city_items[items[i].city].push_back(&items[i]);
+    }
+
+    // Print city/item map
+    cout << "Mapped items to cities: " << "\n";
+    for (auto i = city_items.begin(); i != city_items.end(); i++) {
+        cout << "City " << i->first << " items: ";
+        vector<int> temp;
+        for (int j=0; j<(int)i->second.size(); j++)
+            temp.push_back(i->second[j]->index);
+        cout << temp << "\n";
+    }
+    cout << "\n";
+
+    // ** a. Compute score for each of the items ** //
+    vector< pair<double, Item*> > score_items;
+
+    for (int i=0; i<(int)tour.size(); i++) {
+        // Get list of items at city tour[i]
+        unordered_map<int, vector<Item*>>::iterator it = city_items.find(tour[i]+1);
+        if (it == city_items.end()) continue;
+
+        // Pointer to list of items at the city tour[i]
+        vector<Item*> *current_items = &it->second;
+
+        // Add item to "full" item list
+        for (int j=0; j<(int)current_items->size(); j++) {
+            Item* current_item = current_items->at(j);
+            double score = current_item->profit / (current_item->weight * end_dists[j]);
+            score_items.push_back(make_pair(score,current_item));
+        }
+    }
+
+    // ** b. Sort the items of M in non-decreasing order of their scores ** //
+    cout << "Item Queue: " << "\n";
+    // My computer can't run this
+    // sort(rbegin(score_items), rend(score_items));
+    sort(score_items.begin(), score_items.end());
+    cout << score_items << "\n\n";
+
+    // ** c. set the frequency mu = floor(m / tau) 
+    int mu = floor(itemNum / tau) ;
+    cout << "We set mu = floor(itemNum / tau)=" << mu << " where tau=" << tau << " is a given constant.\n" ;
+
+    // ** d. Initialise the current packing plan P and current weight of bag = 0
+    vector<Item*> P_curr ; 
+    int W_curr = 0, W_cap = ksc ;
+    cout << "P_curr = " << P_curr << " is the initialised packing plan (current)" << "\n" ;
+    cout << "W_curr = " << W_curr << " is the current weight of the packing plan, and" << "\n" 
+             << "W_cap = " << W_cap << " is the capacity of the bag. \n\n";
+ 
+    // ** e. Set the best packing plan P_best = empty
+    vector<Item*> P_best ; 
+    cout << "We initialise an array to hold our best packing plan\nP_best = " << P_best << "\n\n" ;
+
+    // ** f. Set the best objective value Z_best = -inf
+    int Z_best = INT_MIN ;
+    cout << "Z_best is the best objective value (so far)." << "\n";
+    cout << "Z_best = " << Z_best << "\n\n" ;
+
+    // ** g. Set counters to iterate through the score_items
+    int k = 1, k_last = 1;
+    cout << "Counters k = k-th item in score_items, it starts at 1.\n" << 
+    "k_last also starts at 1, and is the last item that we added to the plan.\n\n" ;
+
+    // ** h. Iterate through items k in the item queue 
+    while (W_curr < W_cap  && mu > 1) {
+        Item* kth_item = score_items[k].second;
+        if (W_curr + kth_item->weight <= W_cap) {
+            P_curr.push_back(kth_item);
+            W_curr += kth_item->weight;
+            if (k % mu == 0) {
+                int Z_curr = Z(&tour, &P_curr) ;
+                if (Z_curr < Z_best) {
+                    P_curr = P_best ;
+                    k = k_last ;
+                    mu /= 2 ; // Truncate / floor
+                }
+                else {
+                    P_best = P_curr ;
+                    k_last = k ;
+                    Z_best = Z_curr ;
+                }
+            } 
+            k++;
+        }
+    }
+    
+    cout << P_best << "\n" ;
 }
