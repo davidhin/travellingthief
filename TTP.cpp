@@ -39,10 +39,10 @@ ostream &operator<<(ostream &os, Item* const &i) {
 }
 
 // Output Enabled/disabled
-bool output = true;
+bool output = false;
 
 // Constants
-int tau = 1 ; // TODO: Find a better value to set this to
+int tau = 63 ; // TODO: Find a better value to set this to
 
 // Globals
 int dimension;
@@ -87,7 +87,7 @@ int main() {
     // **** 1. Parsing **** //
 
     // Getting file
-    ifstream file("simple4_n6.ttp");
+    ifstream file("fnl.ttp");
 
     string line; // Holds each line of the file
 
@@ -321,8 +321,8 @@ int main() {
         if (W_curr + kth_item->weight <= W_cap) {
             P_curr.push_back(kth_item);
             W_curr += kth_item->weight;
-            if (true) { // TODO We only put the mu limiter in once we use big sets
-            //if (k % mu == 0) {
+            //if (true) { // TODO We only put the mu limiter in once we use big sets
+            if (k % mu == 0) {
                 double Z_curr = Z(&tour, &dist, &P_curr) ;
                 if (Z_curr < Z_best) {
                     P_curr = P_best ;
