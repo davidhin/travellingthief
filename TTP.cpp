@@ -42,7 +42,7 @@ ostream &operator<<(ostream &os, Item* const &i) {
 bool output = false;
 
 // Constants
-int tau = 1 ; // TODO: Find a better value to set this to
+int tau = 60 ; // TODO: Find a better value to set this to
 
 // Globals
 int dimension;
@@ -54,12 +54,25 @@ int itemNum;
 
 // Get total weight of all items in city, using packingplan vector
 // TODO: Find a more efficient way of doing this
-double city_weight(int city, vector<Item*>* packing_plan)
+double city_weight(vector<int>* tour, int city, vector<Item*>* packing_plan)
 {
     int ret = 0;
-    for (int i = 0; i < (int)packing_plan->size(); i++)
-        if ((*packing_plan)[i]->city == city)
-            ret += (*packing_plan)[i]->weight ;
+    int tourCount = 0;
+    while(true) {
+        for (int i = 0; i < (int)packing_plan->size(); i++) {
+            if ((*packing_plan)[i]->city == (*tour)[tourCount]) {
+                ret += (*packing_plan)[i]->weight ;
+            }
+            // if((*tour)[tourCount]==city) {
+            //     break;
+            // }
+        }
+
+        if((*tour)[tourCount]==city) {
+            break;
+        }
+        tourCount++;
+    }
     return ret ;
 }
 
@@ -78,7 +91,7 @@ double Z(vector<int>* tour, vector<double>* dist, vector<Item*>* packing_plan) {
     // TODO: Check if the city weights actually works
     double subtrahend = 0;
     for(int i = 1; i < (int)(*dist).size(); i++)
-        subtrahend += (double)(*dist)[i] / (maxS - v*city_weight((*tour)[i], packing_plan)) ;
+        subtrahend += (double)(*dist)[i] / (maxS - v*city_weight(tour ,(*tour)[i-1], packing_plan)) ;
 
     return minuend - rent*(subtrahend);
 }
@@ -202,8 +215,7 @@ int main(int argc, char* argv[]) {
     temp2 = pow(temp2, 2);
     temp1 = temp1 + temp2;
     temp1 = sqrt(temp1);
-    dist.push_back(temp1); // TODO: Is this correct? We want to push back, not replace the last distance
-    // OLD dist[dist.size()-1] = temp1;
+    dist.push_back(temp1);
 
     getline(file, line);
 
@@ -234,119 +246,203 @@ int main(int argc, char* argv[]) {
         tour[i]++;
     }
 
-    // Create a vector of "distances to end of tour"
-    vector<double> end_dists;
-    for (int i=0; i<(int)dist.size(); i++) {
-        end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0.0));
-    }
+    // **** Tour optimization stuff **** //
+    // Storing old vectors
+    vector<Item*> P_ultimate ;
+    vector<int> old_tour = tour;
+    vector<double> old_dist = dist;
+    double Z_ultimate = -0xfffffff ;
+    // Optimization parameters
+    int start = 1;
 
-    // Printing
-    if (output) cout << "Tour:\n" << tour << "\n\n";
-    if (output) cout << "Distances:\n" << dist << "\n\n";
-    if (output) cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
+    int numIter = 0; // Number of iterations
+// output = true;
+    // for(int tourUpdate=start; tourUpdate<dimension; tourUpdate+=10) {
+    for(int tourUpdate=start; tourUpdate<start+40; tourUpdate+=10) {
+        // This is the index at which the 2 opt will split the tour
+        int firstEdge = tourUpdate;
+        int secondEdge = firstEdge + 2;
+        // int firstEdge = 1;
+        // int secondEdge = 2;
 
-    // Assign items to cities
-    unordered_map<int, vector<Item*>> city_items;
-    for (int i=0; i<(int)items.size(); i++) {
-        city_items[items[i].city].push_back(&items[i]);
-    }
+        double opt1 = 0;
+        double opt2 = 0;
 
-    // Print city/item map
-    if (output) cout << "Mapped items to cities: " << "\n";
-    for (auto i = city_items.begin(); i != city_items.end(); i++) {
-        if (output) cout << "City " << i->first << " items: ";
-        vector<int> temp;
-        for (int j=0; j<(int)i->second.size(); j++)
-            temp.push_back(i->second[j]->index);
-        if (output) cout << temp << "\n";
-    }
-    if (output) cout << "\n";
+        if(numIter!=0) { // Calculate objective value for original tour first
+            // Tour optimization goes starts here
 
-    // ** a. Compute score for each of the items ** //
-    vector< pair<double, Item*> > score_items;
+            // Reverse middle segment
+            reverse(tour.begin()+firstEdge, tour.begin()+secondEdge); // The whole of 2-opt essentially
 
-    for (int i=0; i<(int)tour.size(); i++) {
-        // Get list of items at city tour[i]
-        unordered_map<int, vector<Item*>>::iterator it = city_items.find(tour[i]+1);
-        if (it == city_items.end()) continue;
+            // Tour optimization goes ends here
 
-        // Pointer to list of items at the city tour[i]
-        vector<Item*> *current_items = &it->second;
-
-        // Add item to "full" item list
-        for (int j=0; j<(int)current_items->size(); j++) {
-            Item* current_item = current_items->at(j);
-            double score = current_item->profit / (current_item->weight * end_dists[j]);
-            score_items.push_back(make_pair(score,current_item));
-        }
-    }
-
-    // ** b. Sort the items of M in non-decreasing order of their scores ** //
-    if (output) cout << "Item Queue: " << "\n";
-    // My computer can't run this
-    // sort(rbegin(score_items), rend(score_items));
-    sort(score_items.begin(), score_items.end());
-    if (output) cout << score_items << "\n\n";
-
-    // ** c. set the frequency mu = floor(m / tau)
-    int mu = floor(itemNum / tau) ;
-    if (output) cout << "We set mu = floor(itemNum / tau)=" << mu << " where tau=" << tau << " is a given constant.\n" ;
-
-    // ** d. Initialise the current packing plan P and current weight of bag = 0
-    vector<Item*> P_curr ;
-    double W_curr = 0, W_cap = ksc ;
-    if (output) cout << "P_curr = " << P_curr << " is the initialised packing plan (current)" << "\n" ;
-    if (output) cout << "W_curr = " << W_curr << " is the current weight of the packing plan, and" << "\n"
-             << "W_cap = " << W_cap << " is the capacity of the bag. \n\n";
-
-    // ** e. Set the best packing plan P_best = empty
-    vector<Item*> P_best ;
-    if (output) cout << "We initialise an array to hold our best packing plan\nP_best = " << P_best << "\n\n" ;
-
-    // ** f. Set the best objective value Z_best = -inf
-    double Z_best = -0xfffffff ;
-    if (output) cout << "Z_best is the best objective value (so far)." << "\n";
-    if (output) cout << "Z_best = " << Z_best << "\n\n" ;
-
-    // ** g. Set counters to iterate through the score_items
-    int k = 0, k_last = 0;
-    if (output) cout << "Counters k = k-th item in score_items, it starts at 0.\n" <<
-    "k_last also starts at 0, and is the last item that we added to the plan.\n\n" ;
-
-    if (output) cout << "Objective function score: \n" ;
-    if (output) cout << Z_best << "\n";
-    // ** h. Iterate through items k in the item queue
-    while (W_curr < W_cap && mu > 1 && k < itemNum) {
-        Item* kth_item = score_items[k].second;
-        if (W_curr + kth_item->weight <= W_cap) {
-            P_curr.push_back(kth_item);
-            W_curr += kth_item->weight;
-            if (true) { // TODO We only put the mu limiter in once we use big sets
-            // if (k % mu == 0) {
-                double Z_curr = Z(&tour, &dist, &P_curr) ;
-                if (Z_curr < Z_best) {
-                    P_curr = P_best ;
-                    k = k_last ;
-                    mu /= 2 ; // Truncate / floor
-                }
-                else {
-                    P_best = P_curr ;
-                    k_last = k ;
-                    Z_best = Z_curr ;
-                }
+            // Recalculating distances
+            for(int i=firstEdge-1; i<secondEdge; i++) {
+                opt1 = cities[tour[i]].xCoord - cities[tour[i-1]].xCoord;
+                opt2 = cities[tour[i]].yCoord - cities[tour[i-1]].yCoord;
+                opt1 = pow(opt1, 2);
+                opt2 = pow(opt2, 2);
+                opt1 = opt1 + opt2;
+                opt1 = sqrt(opt1);
+                dist[i+1] = opt1;
             }
         }
-        if (output) cout << Z_best << "\n";
-        k++;
-    }
 
+        // Calculate distance from last City to first
+        opt1 = cities[tour[0]-1].xCoord - cities[tour[tour.size()-1]-1].xCoord;
+        opt2 = cities[tour[0]-1].yCoord - cities[tour[tour.size()-1]-1].yCoord;
+        opt1 = pow(opt1, 2);
+        opt2 = pow(opt2, 2);
+        opt1 = opt1 + opt2;
+        opt1 = sqrt(opt1);
+        dist[dist.size()-1] = opt1;
+
+        // cout<<tour<<endl;
+        // cout<<dist<<endl;
+        // return 0;
+
+        // Create a vector of "distances to end of tour"
+        vector<double> end_dists;
+        for (int i=0; i<(int)dist.size(); i++) {
+            end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0.0));
+        }
+
+        // Printing
+        if (output) cout << "Tour:\n" << tour << "\n\n";
+        if (output) cout << "Distances:\n" << dist << "\n\n";
+        if (output) cout << "Distance from city i to end of tour: \n" << end_dists << "\n\n";
+
+        // Assign items to cities
+        unordered_map<int, vector<Item*>> city_items;
+        for (int i=0; i<(int)items.size(); i++) {
+            city_items[items[i].city].push_back(&items[i]);
+        }
+
+        // Print city/item map
+        if (output) cout << "Mapped items to cities: " << "\n";
+        for (auto i = city_items.begin(); i != city_items.end(); i++) {
+            if (output) cout << "City " << i->first << " items: ";
+            vector<int> temp;
+            for (int j=0; j<(int)i->second.size(); j++)
+                temp.push_back(i->second[j]->index);
+            if (output) cout << temp << "\n";
+        }
+        if (output) cout << "\n";
+
+        // ** a. Compute score for each of the items ** //
+        vector< pair<double, Item*> > score_items;
+
+        for (int i=0; i<(int)tour.size(); i++) {
+            // Get list of items at city tour[i]
+            unordered_map<int, vector<Item*>>::iterator it = city_items.find(tour[i]+1);
+            if (it == city_items.end()) continue;
+
+            // Pointer to list of items at the city tour[i]
+            vector<Item*> *current_items = &it->second;
+
+            // Add item to "full" item list
+            for (int j=0; j<(int)current_items->size(); j++) {
+                Item* current_item = current_items->at(j);
+                double score = current_item->profit / (current_item->weight * end_dists[j]);
+                score_items.push_back(make_pair(score,current_item));
+            }
+        }
+
+        // ** b. Sort the items of M in non-decreasing order of their scores ** //
+        if (output) cout << "Item Queue: " << "\n";
+        // My computer can't run this
+        // sort(rbegin(score_items), rend(score_items));
+        sort(score_items.begin(), score_items.end());
+        if (output) cout << score_items << "\n\n";
+
+        // ** c. set the frequency mu = floor(m / tau)
+        int mu = floor(itemNum / tau) ;
+        if (output) cout << "We set mu = floor(itemNum / tau)=" << mu << " where tau=" << tau << " is a given constant.\n" ;
+
+        // ** d. Initialise the current packing plan P and current weight of bag = 0
+        vector<Item*> P_curr ;
+        double W_curr = 0, W_cap = ksc ;
+        if (output) cout << "P_curr = " << P_curr << " is the initialised packing plan (current)" << "\n" ;
+        if (output) cout << "W_curr = " << W_curr << " is the current weight of the packing plan, and" << "\n"
+                 << "W_cap = " << W_cap << " is the capacity of the bag. \n\n";
+
+        // ** e. Set the best packing plan P_best = empty
+        vector<Item*> P_best ;
+        if (output) cout << "We initialise an array to hold our best packing plan\nP_best = " << P_best << "\n\n" ;
+
+        // ** f. Set the best objective value Z_best = -inf
+        double Z_best = -0xfffffff ;
+        if (output) cout << "Z_best is the best objective value (so far)." << "\n";
+        if (output) cout << "Z_best = " << Z_best << "\n\n" ;
+
+        // ** g. Set counters to iterate through the score_items
+        int k = 0, k_last = 0;
+        if (output) cout << "Counters k = k-th item in score_items, it starts at 0.\n" <<
+        "k_last also starts at 0, and is the last item that we added to the plan.\n\n" ;
+
+        if (output) cout << "Objective function score: \n" ;
+        if (output) cout << Z_best << "\n";
+        // ** h. Iterate through items k in the item queue
+        while (W_curr < W_cap && mu > 1 && k < itemNum) {
+            Item* kth_item = score_items[k].second;
+            if (W_curr + kth_item->weight <= W_cap) {
+                P_curr.push_back(kth_item);
+                W_curr += kth_item->weight;
+                // if (true) { // TODO We only put the mu limiter in once we use big sets
+                if (k % mu == 0) {
+                    cout<<Z_best<<endl;
+                    double Z_curr = Z(&tour, &dist, &P_curr) ;
+                    if (Z_curr < Z_best) {
+                        P_curr = P_best ;
+                        k = k_last ;
+                        mu /= 2 ; // Truncate / floor
+                    }
+                    else {
+                        P_best = P_curr ;
+                        k_last = k ;
+                        Z_best = Z_curr ;
+                    }
+                }
+            }
+            // cout<<Z_best<<endl;
+            if (output) cout << Z_best << "\n";
+            k++;
+        }
+
+        // **** End of tour optimization **** //
+        // cout<<Z_best<<endl;
+        cout<<endl;
+
+        // Reverting to old tour and distances
+        if(Z_best<Z_ultimate) { // worse
+            tour = old_tour;
+            dist = old_dist;
+        }else{// better
+            Z_ultimate = Z_best;
+            old_tour = tour;
+            old_dist = dist;
+            P_ultimate = P_best;
+        }
+
+        numIter ++;
+
+    }
+    // return 0;
     if (output)  cout << "\nFinal Packing Plan: \n";
     ofstream outputFile;
     outputFile.open("fnl_soln.ttp");
-    outputFile << tour << "\n" ;
-    outputFile << P_best << "\n" ;
+    outputFile << old_tour << "\n" ;
+    outputFile << P_ultimate << "\n" ;
     outputFile.close();
-    
+
+
+    // if (output)  cout << "\nFinal Packing Plan: \n";
+    // ofstream outputFile;
+    // outputFile.open("fnl_soln.ttp");
+    // outputFile << tour << "\n" ;
+    // outputFile << P_best << "\n" ;
+    // outputFile.close();
+
     // Old couts - still use for testing
     // cout << tour << "\n" ;
     // cout << P_best << "\n" ;
