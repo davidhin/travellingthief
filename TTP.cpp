@@ -52,6 +52,12 @@ int ksc;
 double rent;
 int itemNum;
 
+// Store order of the cities in the tour and the distance to the next City
+vector<int> tour;
+vector<double> dist;
+vector<City> cities; // Parsed cities
+vector<Item> items; // Parsed Items
+
 // Get total weight of all items in city, using packingplan vector
 // TODO: Find a more efficient way of doing this
 double city_weight(vector<int>* tour, int city, vector<Item*>* packing_plan)
@@ -96,142 +102,11 @@ double Z(vector<int>* tour, vector<double>* dist, vector<Item*>* packing_plan) {
     return minuend - rent*(subtrahend);
 }
 
+void parsingFile(char* argv[]);
+
 int main(int argc, char* argv[]) {
-    // **** 1. Parsing **** //
 
-    ifstream file(argv[1]);
-    string line; // Holds each line of the file
-
-    char delim = '\n';
-
-    for(int i=0; i<3; i++) {
-        getline(file, line);
-    }
-
-    // Dimension (number of cities)
-    string temp;
-    istringstream ss(line);
-    ss >> temp >> dimension;
-    ss.clear();
-
-    // Number of items
-    getline(file, line);
-    ss.str(line);
-    ss >> temp >> temp >> temp >> itemNum;
-    ss.clear();
-
-    // Getting knapsack capaCity
-    getline(file, line);
-    ss.str(line);
-    ss >> temp >> temp >> temp >> ksc;
-    ss.clear();
-
-    // Min speed
-    getline(file, line);
-    ss.str(line);
-    ss >> temp >> temp >> minS;
-    ss.clear();
-
-    // Max speed
-    getline(file, line);
-    ss.str(line);
-    ss >> temp >> temp >> maxS;
-    ss.clear();
-
-    // Rent
-    getline(file, line);
-    ss.str(line);
-    ss >> temp >> temp >> rent;
-    ss.clear();
-
-    // Skipping extra lines
-    getline(file, line);
-    getline(file, line);
-
-    // Parsing City coordinates into vector of City structs
-    vector<City> cities;
-    for(int i=0; i<dimension; i++) {
-        City newC;
-        getline(file, line);
-        ss.str(line);
-        ss >> newC.index;
-        ss >> newC.xCoord;
-        ss >> newC.yCoord;
-        newC.added = false;
-        cities.push_back(newC);
-        ss.clear();
-    }
-
-    // **** 2. Nearest Neighbours Algorithm **** //
-
-    // Store order of the cities in the tour and the distance to the next City
-    vector<int> tour;
-    vector<double> dist;
-
-    // Adding first City to the tour
-    tour.push_back(0);
-    dist.push_back(0);
-    cities[0].added = true;
-
-    // For storing current closest City details
-    double lowDist;
-    int tempInd = 1;
-    // Calculating distance variables
-    double temp1;
-    double temp2;
-
-    // Distance formula
-    // sqrt( (x1-x2)^2 + (y1-y2)^2 )
-
-    // Getting tour
-    for(int l=1; l<dimension; l++) {
-        lowDist = INT_MAX; // reset distance
-        for(int k=1; k<dimension; k++) {
-            if(cities[k].added) { // If City is already in tour
-                continue;
-            }else{
-                // Calculate distance
-                temp1 = cities[tour[l-1]].xCoord - cities[k].xCoord;
-                temp2 = cities[tour[l-1]].yCoord - cities[k].yCoord;
-                temp1 = pow(temp1, 2);
-                temp2 = pow(temp2, 2);
-                temp1 = temp1 + temp2;
-                temp1 = sqrt(temp1);
-                if(temp1<lowDist) {
-                    lowDist = temp1;
-                    tempInd = k;
-                }
-            }
-        }
-        tour.push_back(tempInd);
-        dist.push_back(lowDist);
-        cities[tempInd].added = true;
-    }
-
-    // Calculate distance from last City to first
-    temp1 = cities[tour[0]].xCoord - cities[tour[tour.size()-1]].xCoord;
-    temp2 = cities[tour[0]].yCoord - cities[tour[tour.size()-1]].yCoord;
-    temp1 = pow(temp1, 2);
-    temp2 = pow(temp2, 2);
-    temp1 = temp1 + temp2;
-    temp1 = sqrt(temp1);
-    dist.push_back(temp1);
-
-    getline(file, line);
-
-    // Parsing items
-    vector<Item> items;
-    for(int i=0; i<itemNum; i++) {
-        Item newI;
-        getline(file, line);
-        ss.str(line);
-        ss >> newI.index;
-        ss >> newI.profit;
-        ss >> newI.weight;
-        ss >> newI.city;
-        items.push_back(newI);
-        ss.clear();
-    }
+    parsingFile(argv);
 
     // **** 3. Algorithm 1 **** //
 
@@ -446,4 +321,136 @@ int main(int argc, char* argv[]) {
     // Old couts - still use for testing
     // cout << tour << "\n" ;
     // cout << P_best << "\n" ;
+}
+
+// Parsing input file
+void parsingFile(char* argv[]) {
+    // **** 1. Parsing **** //
+
+    ifstream file(argv[1]);
+    string line; // Holds each line of the file
+
+    char delim = '\n';
+
+    for(int i=0; i<3; i++) {
+        getline(file, line);
+    }
+
+    // Dimension (number of cities)
+    string temp;
+    istringstream ss(line);
+    ss >> temp >> dimension;
+    ss.clear();
+
+    // Number of items
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> temp >> itemNum;
+    ss.clear();
+
+    // Getting knapsack capaCity
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> temp >> ksc;
+    ss.clear();
+
+    // Min speed
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> minS;
+    ss.clear();
+
+    // Max speed
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> maxS;
+    ss.clear();
+
+    // Rent
+    getline(file, line);
+    ss.str(line);
+    ss >> temp >> temp >> rent;
+    ss.clear();
+
+    // Skipping extra lines
+    getline(file, line);
+    getline(file, line);
+
+    // Parsing City coordinates into vector of City structs
+    for(int i=0; i<dimension; i++) {
+        City newC;
+        getline(file, line);
+        ss.str(line);
+        ss >> newC.index;
+        ss >> newC.xCoord;
+        ss >> newC.yCoord;
+        newC.added = false;
+        cities.push_back(newC);
+        ss.clear();
+    }
+
+    // **** 2. Nearest Neighbours Algorithm **** //
+    // Adding first City to the tour
+    tour.push_back(0);
+    dist.push_back(0);
+    cities[0].added = true;
+
+    // For storing current closest City details
+    double lowDist;
+    int tempInd = 1;
+    // Calculating distance variables
+    double temp1;
+    double temp2;
+
+    // Distance formula
+    // sqrt( (x1-x2)^2 + (y1-y2)^2 )
+
+    // Getting tour
+    for(int l=1; l<dimension; l++) {
+        lowDist = INT_MAX; // reset distance
+        for(int k=1; k<dimension; k++) {
+            if(cities[k].added) { // If City is already in tour
+                continue;
+            }else{
+                // Calculate distance
+                temp1 = cities[tour[l-1]].xCoord - cities[k].xCoord;
+                temp2 = cities[tour[l-1]].yCoord - cities[k].yCoord;
+                temp1 = pow(temp1, 2);
+                temp2 = pow(temp2, 2);
+                temp1 = temp1 + temp2;
+                temp1 = sqrt(temp1);
+                if(temp1<lowDist) {
+                    lowDist = temp1;
+                    tempInd = k;
+                }
+            }
+        }
+        tour.push_back(tempInd);
+        dist.push_back(lowDist);
+        cities[tempInd].added = true;
+    }
+
+    // Calculate distance from last City to first
+    temp1 = cities[tour[0]].xCoord - cities[tour[tour.size()-1]].xCoord;
+    temp2 = cities[tour[0]].yCoord - cities[tour[tour.size()-1]].yCoord;
+    temp1 = pow(temp1, 2);
+    temp2 = pow(temp2, 2);
+    temp1 = temp1 + temp2;
+    temp1 = sqrt(temp1);
+    dist.push_back(temp1);
+
+    getline(file, line);
+
+    // Parsing items
+    for(int i=0; i<itemNum; i++) {
+        Item newI;
+        getline(file, line);
+        ss.str(line);
+        ss >> newI.index;
+        ss >> newI.profit;
+        ss >> newI.weight;
+        ss >> newI.city;
+        items.push_back(newI);
+        ss.clear();
+    }
 }
