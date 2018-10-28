@@ -42,9 +42,9 @@ ostream &operator<<(ostream &os, Item const &i) {
 }
 
 // Forward Declarations
-double Z(vector<int>*, vector<double>*); // Objective function
-void insertion(vector<int>*, vector<Item*>*); // Objective function
-void bitflip(vector<int>*, int);
+double Z(vector<int>*, vector<double>*, vector<Item*>*); // Objective function
+void insertion(vector<int>*); // Objective function
+void bitflip(vector<int>*, double*);
 double distance(City*, City*);
 vector< pair<double, int> > get_scores(double); // Returns items in "score" order
 void parsingFile(char* argv[]);
@@ -59,7 +59,7 @@ double rent;
 int itemNum;
 
 // Constants
-int tau = 2 ;   // We may not need this because our input sizes are small
+int tau = 2000 ;   // We may not need this because our input sizes are small
                 // enough to just try every item in the packing plan
                 // However, we could use this when we start optimising tours (?)
 
@@ -113,20 +113,20 @@ int main(int argc, char* argv[]) {
         double W_curr = 0, W_cap = ksc ; // Initialise current weight and weight capacity
         int mu = floor(itemNum / tau) ; // Set the frequency of item adding
         double Z_best = -0xfffffff ; // initialise best objective value to -inf
-        int k = 0; // used to iterate through score_items
+        int k = 0; //, k_last=0; // used to iterate through score_items
         while (W_curr < W_cap && mu > 1 && k < itemNum) {
             Item* kth_item = &items[score_items[k].second-1];
             if (W_curr + kth_item->weight <= W_cap) {
                 kth_item->picked = true;
                 W_curr += kth_item->weight;
-                if (true) { // TODO We only put the mu limiter in once we use big sets
-                //if (k % mu == 0) {
-                    double Z_curr = Z(&tour, &dist) ;
+                if (k % 1 == 0) { // Set to 1 if want to check all items
+                    vector<Item*> plan = packing_plan();
+                    double Z_curr = Z(&tour, &dist, &plan) ;
                     if (Z_curr < Z_best) {
                         kth_item->picked = false;
                         W_curr -= kth_item->weight ;
-                        // k = k_last ;
-                        // mu /= 2 ; // Truncate / floor
+                        //k = k_last ;
+                        //mu /= 2 ; // Truncate / floor
                     }
                     else {
                         // k_last = k ;
@@ -137,12 +137,12 @@ int main(int argc, char* argv[]) {
                 }
             }
             k++;
-        // cout<<Z_best<<endl;
-        // cout << k << "\n";
+         cout<<Z_best<<endl;
+         cout << k << "\n";
         }
 
-        bitflip(&old_tour, W_curr);
-        // insertion(&old_tour, &P_ultimate) ;
+        bitflip(&old_tour, &W_curr);
+        //insertion(&old_tour) ;
         // cout<<Z(&old_tour, &dist)<<" after flip"<<endl;
 
         // Reverting to old tour and distances
@@ -188,17 +188,16 @@ double distance(City* a, City* b) {
 }
 
 // Objective function
-double Z(vector<int>* tour_in, vector<double>* dist) {
+double Z(vector<int>* tour_in, vector<double>* dist, vector<Item*>* plan) {
     long collected = 0;
     double ret = 0;
     double v = ( maxS - minS ) / ksc;
-    vector<Item*> plan = packing_plan();
 
     for (int i = 0; i < (int)(*tour_in).size(); i++) {
-        for (int j = 0; j<(int)plan.size(); j++) {
-            if (plan[j]->city == (*tour_in)[i]) {
-                collected += plan[j]->weight;
-                ret += plan[j]->profit;
+        for (int j = 0; j<(int)plan->size(); j++) {
+            if ((*plan)[j]->city == (*tour_in)[i]) {
+                collected += (*plan)[j]->weight;
+                ret += (*plan)[j]->profit;
             }
         }
         ret -= ceil((*dist)[i+1]) * rent / (maxS - v * collected);
@@ -254,22 +253,25 @@ vector< pair<double, int> > get_scores(double alpha) {
 }
 
 // Bitflip
-void bitflip(vector<int>* tour_in, int W_curr) {
-    double Z_score = Z(tour_in, &dist);
+void bitflip(vector<int>* tour_in, double* W_curr) {
+    vector<Item*> plan_init = packing_plan();
+    double Z_score = Z(tour_in, &dist, &plan_init);
     double Z_flipped;
+
     for(int i=0; i<(int)items.size(); i++) {
         if (items[i].picked) { // If already picked
             items[i].picked = false;
         }else{ // If not in tour
             items[i].picked = true;
-            if(W_curr+items[i].weight>ksc) {
+            if(*W_curr+items[i].weight>ksc) {
                 items[i].picked = false;
                 continue;
             }
         }
 
-        Z_flipped = Z(tour_in, &dist);
-        cout<<Z_flipped<<" flipped"<<endl;
+        vector<Item*> plan = packing_plan();
+        Z_flipped = Z(tour_in, &dist, &plan);
+        cout<< i << " " << Z_flipped<<" flipped"<<endl;
         // cout<<packing_plan()<<endl;
         if(Z_flipped<Z_score) { // Worse
             if (items[i].picked) {
@@ -280,9 +282,9 @@ void bitflip(vector<int>* tour_in, int W_curr) {
         }else { // Better when flipped
             Z_score = Z_flipped;
             if (items[i].picked) {
-                W_curr += items[i].weight;
+                *W_curr += items[i].weight;
             }else {
-                W_curr -= items[i].weight;
+                *W_curr -= items[i].weight;
             }
 
         }
@@ -291,47 +293,40 @@ void bitflip(vector<int>* tour_in, int W_curr) {
 }
 
 // Insertion
-void insertion(vector<int>* tour_in, vector<Item*>* packing_plan) {
+void insertion(vector<int>* tour_in) {
+    vector<Item*> plan = packing_plan();
+
     for (int i = tour_in->size()-1; i>=0; i--) {
-        double Z_best = Z(tour_in, &dist);
+        double Z_best = Z(tour_in, &dist, &plan);
         cout << "Z_best: " << Z_best << "\n";
 
         vector<int> tour_starstar = *tour_in;
         vector<int> tour_new = *tour_in;
 
-        for (int j=i; j>=1; j--) {
-
+        for (int j=i; j>=1; j-=1000) {
             // Insert city between xb and xb-1 in tour_new
             swap(tour_new[j], tour_new[j-1]);
-
             // Compute Z*
-            for (int k=max(j-1,1); k<(int)dist.size()-1; k++) {
+            for (int k=max(j-1,1); k<min(j+2, (int)dist.size()-1); k++) {
                 dist[k] = distance(&cities[tour_new[k-1]-1], &cities[tour_new[k]-1]);
             }
             dist[dist.size()-1] = distance(&cities[tour_new[tour_new.size()-1]-1], &cities[tour_new[0]-1]);
-            double Z_curr = Z(&tour_new, &dist);
-
+            double Z_curr = Z(&tour_new, &dist, &plan);
+            //cout << Z_curr << "\n";
             // Update if better
             if (Z_curr > Z_best) {
                 Z_best = Z_curr;
                 tour_starstar = tour_new;
                 cout << "updated" << "\n";
-            }
-
-            if (j == 1) {
-                *tour_in = tour_starstar;
-                for (int k=1; k<(int)dist.size()-1; k++) {
-                    dist[k] = distance(&cities[(*tour_in)[k-1]-1], &cities[(*tour_in)[k]-1]);
-                }
-                dist[dist.size()-1] = distance(&cities[(*tour_in)[(*tour_in).size()-1]-1], &cities[(*tour_in)[0]-1]);
-            }
-
-            ofstream outputFile;
-            outputFile.open("fnl_soln.ttp");
-            outputFile << tour << "\n" ;
-            outputFile << *packing_plan << "\n" ;
-            outputFile.close();
+            }    
         }
+
+        // Update actual tour to tour_starstar
+        *tour_in = tour_starstar;
+        for (int k=1; k<(int)dist.size()-1; k++) {
+            dist[k] = distance(&cities[(*tour_in)[k-1]-1], &cities[(*tour_in)[k]-1]);
+        }
+        dist[dist.size()-1] = distance(&cities[(*tour_in)[(*tour_in).size()-1]-1], &cities[(*tour_in)[0]-1]);
     }
     cout << "\n";
 }
