@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <unordered_map>
 #include <math.h> //sqrt & pow
+#include <random>
 
 #include "prettyprint.h" // custom .h file for printing
 using namespace std;
@@ -41,133 +42,253 @@ ostream &operator<<(ostream &os, Item const &i) {
     return os << "<id:" << i.index <<",city:" << i.city << ",weight:" << i.weight << "," <<"profit:" << i.profit << ">";
 }
 
-// Forward Declarations
-double Z(vector<int>*, vector<double>*, vector<Item*>*); // Objective function
-void insertion(vector<int>*); // Objective function
-void bitflip(vector<int>*, double*);
-double distance(City*, City*);
-vector< pair<double, int> > get_scores(double); // Returns items in "score" order
-void parsingFile(char* argv[]);
-vector<Item*> packing_plan();
-
 // Globals
 int dimension;
 double minS;
 double maxS;
 int ksc;
+double W_curr;
 double rent;
 int itemNum;
 
 // Constants
-int tau = 2000 ;   // We may not need this because our input sizes are small
-                // enough to just try every item in the packing plan
-                // However, we could use this when we start optimising tours (?)
+int tau = 1 ; // Used to make packing plan quicker but more inaccurate
 
 // Store order of the cities in the tour and the distance to the next City
 vector<int> tour;
 vector<double> dist;
 vector<City> cities; // Parsed cities
 vector<Item> items; // Parsed Items
+vector<double> end_dists; // City's distance to the end of the tour
+unordered_map<int, vector<Item*>> city_items; // Assigning items to cities
+
+// Forward Declarations
+double Z(vector<int>*, vector<double>*, vector<Item*>*); // Objective function
+void insertion(vector<int>*, bool); // Objective function
+void bitflip(vector<int>*, bool);
+double distance(City*, City*);
+vector< pair<double, int> > get_scores(double); // Returns items in "score" order
+void parsingFile(char* argv[]);
+vector<Item*> packing_plan();
+void initialise_plan(bool, double);
+int distCount(int, int);
+void two_opt(bool);
+void pack_iterative(double c, double delta, int q, bool);
+void dist_end_tour();
+vector<Item*> get_items_in_city(int city);
+void two_opt_Z(bool output);
+
+#include "LK-Heuristic/LKMatrix.h"
+
+// External implementation of lin kernighan
+void LKTour() {
+    vector<int> id;
+    vector<pair<double,double> > coord;
+    for (int i=0; i<cities.size(); i++) {
+        id.push_back(cities[i].index);
+        coord.push_back(make_pair(cities[i].xCoord, cities[i].yCoord));
+    }
+    LKMatrix mat(coord, id);
+    mat.optimizeTour();
+    tour = mat.getTour();
+}
 
 int main(int argc, char* argv[]) {
     // Parsing the files
     parsingFile(argv);
+    
+    // if (dimension > 100) {
+    //     ofstream outputFile;
+    //     outputFile.open("fnl_soln.ttp");
+    //     outputFile << tour << "\n" ;
+    //     outputFile << "[1]" << "\n" ;
+    //     outputFile.close();
+    //     return 0;
+    // }
 
-    // **** Tour Optimization **** //
-    // Storing old vectors
-    vector<Item*> P_ultimate;
-    vector<int> old_tour = tour;
-    vector<double> old_dist = dist;
-    double Z_ultimate = -0xfffffff;
-
-    // Optimization parameters
-    int start = 1; // Optimization parameter
-    int numIter = 0; // Number of iterations
-
-    // Main loop
-    //for(int tourUpdate=start; tourUpdate<dimension; tourUpdate+=10) {
-    for(int tourUpdate=start; tourUpdate<dimension-1; tourUpdate+=1) {
-        for(int tour2=tourUpdate+1; tour2<3; tour2+=1) {
-        // This is the index at which the 2 opt will split the tour
-        int firstEdge = tourUpdate;
-        int secondEdge = tour2;
-
-        if(numIter!=0) { // Calculate objective value for original tour first
-            // Tour optimization goes starts here
-            // Reverse middle segment
-            reverse(tour.begin()+firstEdge, tour.begin()+secondEdge); // The whole of 2-opt essentially
-            // Tour optimization goes ends here
-
-            // Recalculating distances
-            for(int i=firstEdge-1; i<secondEdge; i++) {
-                dist[i+1] = distance(&cities[tour[i]], &cities[tour[i-1]]);
-            }
-        }
-        // Calculate distance from last City to first
-        dist[dist.size()-1] = distance(&cities[tour[0]-1], &cities[tour[tour.size()-1]-1]);
-
-        // Packing Plan Algorithm Starts Here
-        vector< pair<double, int> > score_items = get_scores(1); // Get a list of items ordered by score
-
-        // vector<Item*> P_best ; // Initialise current and best packing plan
-        double W_curr = 0, W_cap = ksc ; // Initialise current weight and weight capacity
-        int mu = floor(itemNum / tau) ; // Set the frequency of item adding
-        double Z_best = -0xfffffff ; // initialise best objective value to -inf
-        int k = 0; //, k_last=0; // used to iterate through score_items
-        while (W_curr < W_cap && mu > 1 && k < itemNum) {
-            Item* kth_item = &items[score_items[k].second-1];
-            if (W_curr + kth_item->weight <= W_cap) {
-                kth_item->picked = true;
-                W_curr += kth_item->weight;
-                if (k % 1 == 0) { // Set to 1 if want to check all items
-                    vector<Item*> plan = packing_plan();
-                    double Z_curr = Z(&tour, &dist, &plan) ;
-                    if (Z_curr < Z_best) {
-                        kth_item->picked = false;
-                        W_curr -= kth_item->weight ;
-                        //k = k_last ;
-                        //mu /= 2 ; // Truncate / floor
-                    }
-                    else {
-                        // k_last = k ;
-                        Z_best = Z_curr ;
-                    }
-                    //cout << Z_best << "\n";
-                    //cout << W_curr << "\n";
-                }
-            }
-            k++;
-         cout<<Z_best<<endl;
-         cout << k << "\n";
-        }
-
-        bitflip(&old_tour, &W_curr);
-        //insertion(&old_tour) ;
-        // cout<<Z(&old_tour, &dist)<<" after flip"<<endl;
-
-        // Reverting to old tour and distances
-        if(Z_best<Z_ultimate) { // worse
-            tour = old_tour;
-            dist = old_dist;
-        }else{// better
-            Z_ultimate = Z_best;
-            old_tour = tour;
-            old_dist = dist;
-            // P_ultimate = P_best;
-            //cout << "Improved" << "\n";
-        }
-        numIter ++;
-        }
+    dist_end_tour(); // Will need to run this before calling initialise_plan for the first time,
+                     // shouldn't need to call it in pack_iterative though.
+    
+    if (dimension < 300) {
+        LKTour();
+        cout << "Done LKTOUR" << "\n";
+        LKTour();
+        cout << "Done LKTOUR" << "\n";
+        LKTour();
+        cout << "Done LKTOUR" << "\n";
+        LKTour();
+        cout << "Done LKTOUR" << "\n";
+        two_opt(false);
+        cout << "Done Two Opt" << "\n";
+        //  initialise_plan(true, -1.5);
+        pack_iterative(1, 10, 20, false);
+        cout << "Done Pack Iterative" << "\n";
+        insertion(&tour, false) ;
+        two_opt_Z(true);
+        pack_iterative(1, 10, 20, false);
+            vector<Item*> plan = packing_plan();
+            cout << "PackingPlan 1: " << Z(&tour, &dist, &plan) << "\n";
+        insertion(&tour, false) ;
+        two_opt_Z(true);
+        pack_iterative(1, 10, 20, false);
+            plan = packing_plan();
+            cout << "PackingPlan 2: " << Z(&tour, &dist, &plan) << "\n";
+        insertion(&tour, false) ;
+        two_opt_Z(false);
+        pack_iterative(1, 10, 20, false);
+            plan = packing_plan();
+            cout << "PackingPlan 3: " << Z(&tour, &dist, &plan) << "\n";
+        insertion(&tour, false) ;
+        two_opt_Z(false);
+        pack_iterative(1, 10, 20, false);
+            plan = packing_plan();
+            cout << "PackingPlan 4: " << Z(&tour, &dist, &plan) << "\n";
+        insertion(&tour, false) ;
+        two_opt_Z(false);
+        pack_iterative(1, 10, 20, false);
+        plan = packing_plan();
+        cout << "PackingPlan 5: " << Z(&tour, &dist, &plan) << "\n";
+    } else {
+        LKTour();
+       // two_opt(false);
+        initialise_plan(false, -1.03125);
+        two_opt(false);
+        initialise_plan(false, -9);
     }
 
-    // Output to file
+    int counts = 0;
+    while(true) {
+        bitflip(&tour, false);
+        
+        if (dimension < 500) {
+            bitflip(&tour, false);
+            bitflip(&tour, false);
+            insertion(&tour, false) ;
+            two_opt_Z(false);
+        }
+
+        vector<Item*> plan = packing_plan();
+        cout << counts << ": " << Z(&tour, &dist, &plan) << "\n";
+
+        counts++;
+        // Output to file
+        ofstream outputFile;
+        outputFile.open("fnl_soln.ttp");
+        outputFile << tour << "\n" ;
+        outputFile << packing_plan() << "\n" ;
+        outputFile.close();
+
+        if (counts == 10) break;
+    }
+
+//    // Output to file
     ofstream outputFile;
     outputFile.open("fnl_soln.ttp");
-    outputFile << old_tour << "\n" ;
+    outputFile << tour << "\n" ;
     outputFile << packing_plan() << "\n" ;
     outputFile.close();
 }
 
+// c is starting alpha value, delta is size of "jumps", q is max iterations
+void pack_iterative(double c, double delta, int q, bool output) {
+
+    initialise_plan(false, c - delta);
+    vector<Item*> P_l = packing_plan();
+    double Z_l = Z(&tour, &dist, &P_l);
+    if (output) cout << "Z_l start: " << Z_l << "\n";
+
+    initialise_plan(false, c);
+    vector<Item*> P_m = packing_plan();
+    double Z_m = Z(&tour, &dist, &P_m);
+    if (output) cout << "Z_m start: " << Z_m << "\n";
+
+    initialise_plan(false, c + delta);
+    vector<Item*> P_r = packing_plan();
+    double Z_r = Z(&tour, &dist, &P_r);
+    if (output) cout << "Z_r start: " << Z_r << "\n";
+
+    vector<Item*> P_best;
+
+    int i = 0;
+    while (i <= q) {
+        if (output) cout << Z_l << " " << Z_m << " " << Z_r << "\n";
+
+        if (Z_l > Z_m && Z_r > Z_m) {
+            if (Z_l > Z_r) {
+                Z_m = Z_l, c -= delta, P_best = P_l;
+            } else {
+                Z_m = Z_r, c += delta, P_best = P_r;
+            }
+        }
+        else if (Z_l > Z_m) {
+            Z_m = Z_l, c = c - delta, P_best = P_l;
+        }
+        else if (Z_r > Z_m) {
+            Z_m = Z_r, c = c + delta, P_best = P_r;
+        }
+        delta /= 2;
+
+        initialise_plan(false, c - delta);
+        P_l = packing_plan();
+        Z_l = Z(&tour, &dist, &P_l);
+
+        initialise_plan(false, c + delta);
+        P_r = packing_plan();
+        Z_r = Z(&tour, &dist, &P_r);
+
+
+        if (abs(Z_l - Z_m) < 0.1 && abs(Z_r - Z_m) < 0.1) {
+            return;
+        }
+
+        i++;
+        if (output) cout << c << " " << Z_m << "\n";
+    }
+}
+
+// Generate a packing plan for a given tour
+void initialise_plan(bool output, double alpha) {
+    // Packing Plan Algorithm Starts Here
+    vector< pair<double, int> > score_items = get_scores(alpha); // Get items ordered by score
+
+    // Optimise later?
+    for (int i=0; i<itemNum; i++)
+        items[i].picked = false;
+
+    W_curr = 0; // Initialise current weight and weight capacity
+    int mu = floor(itemNum / tau) ; // Set the frequency of item adding
+    double Z_best = -0xfffffff ; // initialise best objective value to -inf
+    int k = 0; //, k_last=0; // used to iterate through score_items
+    vector<Item*> plan;
+    while (W_curr < ksc && mu > 1 && k < itemNum) {
+        Item* kth_item = &items[score_items[k].second-1];
+        // if (rand() % 100 < 80) { k++; continue; }
+
+        if (W_curr + kth_item->weight <= ksc) {
+            kth_item->picked = true;
+            plan.push_back(kth_item);
+            W_curr += kth_item->weight;
+            if (k % 1 == 0) { // Set to 1 if want to check all items
+                double Z_curr = Z(&tour, &dist, &plan) ;
+                if (Z_curr < Z_best) {
+                    kth_item->picked = false;
+                    W_curr -= kth_item->weight ;
+                    plan.erase(plan.end()-1);
+                   // k = k_last ;
+                   // mu /= 2 ;
+                }
+                else {
+                   // k_last = k ;
+                    Z_best = Z_curr ;
+                }
+            }
+        }
+        k++;
+        if (output) cout << k << " " << Z_best<<endl;
+    }
+}
+
+// Return the current packing plan as a vector
 vector<Item*> packing_plan() {
     vector<Item*> plan;
     for(int i=0; i<(int)items.size(); i++)
@@ -178,13 +299,7 @@ vector<Item*> packing_plan() {
 
 // Distance between two cities
 double distance(City* a, City* b) {
-    double temp1 = 0, temp2 = 0;
-    temp1 = a->xCoord - b->xCoord;
-    temp2 = a->yCoord - b->yCoord;
-    temp1 = pow(temp1, 2);
-    temp2 = pow(temp2, 2);
-    temp1 = temp1 + temp2;
-    return sqrt(temp1);
+    return sqrt(pow(a->xCoord - b->xCoord, 2) + pow(a->yCoord - b->yCoord, 2));
 }
 
 // Objective function
@@ -194,27 +309,39 @@ double Z(vector<int>* tour_in, vector<double>* dist, vector<Item*>* plan) {
     double v = ( maxS - minS ) / ksc;
 
     for (int i = 0; i < (int)(*tour_in).size(); i++) {
-        for (int j = 0; j<(int)plan->size(); j++) {
-            if ((*plan)[j]->city == (*tour_in)[i]) {
-                collected += (*plan)[j]->weight;
-                ret += (*plan)[j]->profit;
+        vector<Item*> current_items = get_items_in_city((*tour_in)[i]);
+        for (int j=0; j<(int)current_items.size(); j++) {
+            Item* current_item = current_items.at(j);
+            if(current_item->picked==true) {
+                collected += current_item->weight;
+                ret += current_item->profit;
             }
         }
+
+        // for (int j = 0; j<(int)plan->size(); j++) {
+        //     if ((*plan)[j]->city == (*tour_in)[i]) {
+        //         collected += (*plan)[j]->weight;
+        //         ret += (*plan)[j]->profit;
+        //     }
+        // }
         ret -= ceil((*dist)[i+1]) * rent / (maxS - v * collected);
     }
+    // cout<<"hello "<<ret<<endl;
+    // exit(0);
     return ret;
 }
 
-// Item score calculation
-vector< pair<double, int> > get_scores(double alpha) {
+// Setting city distance till end of tour && Assigning items to cities
+void dist_end_tour() {
+    end_dists = {};
+    city_items = {};
+
     // Create a vector of "distances to end of tour"
-    vector<double> end_dists;
     for (int i=0; i<(int)dist.size(); i++) {
         end_dists.push_back(accumulate(dist.begin()+i+1, dist.end(), 0.0));
     }
 
     // Assign items to cities
-    unordered_map<int, vector<Item*>> city_items;
     for (int i=0; i<(int)items.size(); i++) {
         city_items[items[i].city].push_back(&items[i]);
     }
@@ -226,7 +353,10 @@ vector< pair<double, int> > get_scores(double alpha) {
             temp.push_back(i->second[j]->index);
         }
     }
+}
 
+// Item score calculation
+vector< pair<double, int> > get_scores(double alpha) {
     // Create the vector of items to read in order of score
     vector< pair<double, int> > score_items;
 
@@ -252,18 +382,28 @@ vector< pair<double, int> > get_scores(double alpha) {
     return score_items;
 }
 
+// Return vector of items in a city
+vector<Item*> get_items_in_city(int city) {
+    unordered_map<int, vector<Item*>>::iterator it = city_items.find(city);
+    if (it == city_items.end()) return {};
+
+    // Pointer to list of items at the city at index city
+    return it->second;
+}
+
 // Bitflip
-void bitflip(vector<int>* tour_in, double* W_curr) {
+void bitflip(vector<int>* tour_in, bool output) {
     vector<Item*> plan_init = packing_plan();
     double Z_score = Z(tour_in, &dist, &plan_init);
     double Z_flipped;
 
-    for(int i=0; i<(int)items.size(); i++) {
+    for (int i=0; i<(int)items.size(); i++) {
+
         if (items[i].picked) { // If already picked
             items[i].picked = false;
-        }else{ // If not in tour
+        } else { // If not in tour
             items[i].picked = true;
-            if(*W_curr+items[i].weight>ksc) {
+            if(W_curr+items[i].weight>ksc) {
                 items[i].picked = false;
                 continue;
             }
@@ -271,39 +411,36 @@ void bitflip(vector<int>* tour_in, double* W_curr) {
 
         vector<Item*> plan = packing_plan();
         Z_flipped = Z(tour_in, &dist, &plan);
-        cout<< i << " " << Z_flipped<<" flipped"<<endl;
-        // cout<<packing_plan()<<endl;
-        if(Z_flipped<Z_score) { // Worse
+        if (output) cout<< i << " " << Z_flipped<<" flipped"<<endl;
+        if (Z_flipped<Z_score) { // Worse
             if (items[i].picked) {
                 items[i].picked = false;
-            }else {
+            } else {
                 items[i].picked = true;
             }
-        }else { // Better when flipped
+        } else { // Better when flipped
             Z_score = Z_flipped;
             if (items[i].picked) {
-                *W_curr += items[i].weight;
-            }else {
-                *W_curr -= items[i].weight;
+                W_curr += items[i].weight;
+            } else {
+                W_curr -= items[i].weight;
             }
-
         }
-
     }
 }
 
 // Insertion
-void insertion(vector<int>* tour_in) {
+void insertion(vector<int>* tour_in, bool output) {
     vector<Item*> plan = packing_plan();
 
-    for (int i = tour_in->size()-1; i>=0; i--) {
+    for (int i = tour_in->size()-1; i>=1; i--) {
         double Z_best = Z(tour_in, &dist, &plan);
-        cout << "Z_best: " << Z_best << "\n";
+        if (output) cout << i << " Z_best: " << Z_best << "\n";
 
         vector<int> tour_starstar = *tour_in;
         vector<int> tour_new = *tour_in;
 
-        for (int j=i; j>=1; j-=1000) {
+        for (int j=i; j>=2; j-=1) {
             // Insert city between xb and xb-1 in tour_new
             swap(tour_new[j], tour_new[j-1]);
             // Compute Z*
@@ -317,8 +454,8 @@ void insertion(vector<int>* tour_in) {
             if (Z_curr > Z_best) {
                 Z_best = Z_curr;
                 tour_starstar = tour_new;
-                cout << "updated" << "\n";
-            }    
+                if (output) cout << "updated" << "\n";
+            }
         }
 
         // Update actual tour to tour_starstar
@@ -328,7 +465,95 @@ void insertion(vector<int>* tour_in) {
         }
         dist[dist.size()-1] = distance(&cities[(*tour_in)[(*tour_in).size()-1]-1], &cities[(*tour_in)[0]-1]);
     }
-    cout << "\n";
+    if (output) cout << "\n";
+}
+
+// Two-opt
+void two_opt(bool output) {
+    vector<int> old_tour = tour;
+    vector<double> old_dist = dist;
+    int two_opt_dist;// = distCount(0, dist.size()); // Original Nearest Neighbours tour distance assigned here
+    int temp_dist;
+
+    for(int two_opt_start=1; two_opt_start<dimension-1; two_opt_start+=1) { // First node of 2-opt
+        for(int two_opt_end=two_opt_start+1; two_opt_end<dimension; two_opt_end+=1) { // Second node of 2-opt
+            // Reverse middle segment
+            two_opt_dist = distCount(two_opt_start-1, two_opt_end+1);
+            reverse(tour.begin()+two_opt_start, tour.begin()+two_opt_end); // The whole of 2-opt essentially
+
+            // Recalculating distances
+            for (int i=two_opt_start-1; i<two_opt_end; i++) {
+                dist[i+1] = distance(&cities[tour[i+1]-1], &cities[tour[i]-1]);
+            }
+
+            // Calculate distance from last City to first
+            dist[dist.size()-1] = distance(&cities[tour[0]-1], &cities[tour[tour.size()-1]-1]);
+            temp_dist = distCount(two_opt_start-1, two_opt_end+1);
+
+            // Keeping change if new tour is shorter
+            if(temp_dist < two_opt_dist) { // Shorter distance
+                two_opt_dist = temp_dist;
+                old_tour = tour;
+                old_dist = dist;
+                if (output) cout<<"dist "<<temp_dist<<endl;
+            }else {
+                tour = old_tour;
+                dist = old_dist;
+            }
+        }
+    }
+}
+
+// Two-opt-Z
+void two_opt_Z(bool output) {
+    vector<int> old_tour = tour;
+    vector<double> old_dist = dist;
+    // int two_opt_dist;// = distCount(0, dist.size()); // Original Nearest Neighbours tour distance assigned here
+    // int temp_dist;
+    int to_Z;
+    int to_Z_temp;
+
+    vector<Item*> plan = packing_plan();
+    to_Z = Z(&tour, &dist, &plan);
+
+    for(int two_opt_start=1; two_opt_start<dimension-1; two_opt_start+=1) { // First node of 2-opt
+        for(int two_opt_end=two_opt_start+1; two_opt_end<dimension; two_opt_end+=1) { // Second node of 2-opt
+            // Reverse middle segment
+            // two_opt_dist = distCount(two_opt_start-1, two_opt_end+1);
+
+            reverse(tour.begin()+two_opt_start, tour.begin()+two_opt_end); // The whole of 2-opt essentially
+
+            // Recalculating distances
+            for (int i=two_opt_start-1; i<two_opt_end; i++) {
+                dist[i+1] = distance(&cities[tour[i+1]-1], &cities[tour[i]-1]);
+            }
+
+            // Calculate distance from last City to first
+            dist[dist.size()-1] = distance(&cities[tour[0]-1], &cities[tour[tour.size()-1]-1]);
+            to_Z_temp = Z(&tour, &dist, &plan);
+
+            // Keeping change if new tour is shorter
+            if(to_Z_temp > to_Z) { // Higher Z score
+                to_Z = to_Z_temp;
+                // two_opt_dist = temp_dist;
+                old_tour = tour;
+                old_dist = dist;
+                if (output) cout<<"Z-score: "<<to_Z_temp<<endl;
+            }else {
+                tour = old_tour;
+                dist = old_dist;
+            }
+        }
+    }
+}
+
+// Calculating the distance from city s to city e
+int distCount(int s, int e) {
+    double total = 0;
+    for(int i=s; i<e; i++) {
+        total += dist[i];
+    }
+    return total;
 }
 
 // Parsing input file
@@ -386,8 +611,11 @@ void parsingFile(char* argv[]) {
         getline(file, line);
         ss.str(line);
         ss >> newC.index;
-        ss >> newC.xCoord;
-        ss >> newC.yCoord;
+        string doubleCoor;
+        ss >> doubleCoor;
+        newC.xCoord = stod(doubleCoor);
+        ss >> doubleCoor;
+        newC.yCoord = stod(doubleCoor);
         newC.added = false;
         cities.push_back(newC);
         ss.clear();
@@ -447,3 +675,4 @@ void parsingFile(char* argv[]) {
         tour[i]++;
     }
 }
+
