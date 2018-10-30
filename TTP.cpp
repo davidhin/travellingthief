@@ -78,25 +78,10 @@ void dist_end_tour();
 vector<Item*> get_items_in_city(int city);
 void two_opt_Z(bool output);
 
-#include "LK-Heuristic/LKMatrix.h"
-
-// External implementation of lin kernighan
-void LKTour() {
-    vector<int> id;
-    vector<pair<double,double> > coord;
-    for (int i=0; i<cities.size(); i++) {
-        id.push_back(cities[i].index);
-        coord.push_back(make_pair(cities[i].xCoord, cities[i].yCoord));
-    }
-    LKMatrix mat(coord, id);
-    mat.optimizeTour();
-    tour = mat.getTour();
-}
-
 int main(int argc, char* argv[]) {
     // Parsing the files
     parsingFile(argv);
-    
+    //
     // if (dimension > 100) {
     //     ofstream outputFile;
     //     outputFile.open("fnl_soln.ttp");
@@ -107,59 +92,88 @@ int main(int argc, char* argv[]) {
     // }
 
     dist_end_tour(); // Will need to run this before calling initialise_plan for the first time,
-                     // shouldn't need to call it in pack_iterative though.
-    
+                    // shouldn't need to call it in pack_iterative though.
+
     if (dimension < 300) {
-        LKTour();
-        cout << "Done LKTOUR" << "\n";
-        LKTour();
-        cout << "Done LKTOUR" << "\n";
-        LKTour();
-        cout << "Done LKTOUR" << "\n";
-        LKTour();
-        cout << "Done LKTOUR" << "\n";
-        two_opt(false);
-        cout << "Done Two Opt" << "\n";
-        //  initialise_plan(true, -1.5);
-        pack_iterative(1, 10, 20, false);
-        cout << "Done Pack Iterative" << "\n";
-        insertion(&tour, false) ;
-        two_opt_Z(true);
-        pack_iterative(1, 10, 20, false);
-            vector<Item*> plan = packing_plan();
-            cout << "PackingPlan 1: " << Z(&tour, &dist, &plan) << "\n";
-        insertion(&tour, false) ;
-        two_opt_Z(true);
-        pack_iterative(1, 10, 20, false);
-            plan = packing_plan();
-            cout << "PackingPlan 2: " << Z(&tour, &dist, &plan) << "\n";
-        insertion(&tour, false) ;
-        two_opt_Z(false);
-        pack_iterative(1, 10, 20, false);
-            plan = packing_plan();
-            cout << "PackingPlan 3: " << Z(&tour, &dist, &plan) << "\n";
-        insertion(&tour, false) ;
-        two_opt_Z(false);
-        pack_iterative(1, 10, 20, false);
-            plan = packing_plan();
-            cout << "PackingPlan 4: " << Z(&tour, &dist, &plan) << "\n";
-        insertion(&tour, false) ;
-        two_opt_Z(false);
-        pack_iterative(1, 10, 20, false);
+    two_opt(false);
+ //   cout << "Done Two Opt" << "\n";
+//    initialise_plan(true, -1.5);
+    pack_iterative(1, 10, 20, false);
+    cout << "Done Pack Iterative" << "\n";
+
+    insertion(&tour, false) ;
+    two_opt_Z(true);
+    pack_iterative(1, 10, 20, false);
+        vector<Item*> plan = packing_plan();
+        cout << "PackingPlan 1: " << Z(&tour, &dist, &plan) << "\n";
+    insertion(&tour, false) ;
+    two_opt_Z(true);
+    pack_iterative(1, 10, 20, false);
+        plan = packing_plan();
+        cout << "PackingPlan 2: " << Z(&tour, &dist, &plan) << "\n";
+    insertion(&tour, false) ;
+    two_opt_Z(false);
+    pack_iterative(1, 10, 20, false);
+        plan = packing_plan();
+        cout << "PackingPlan 3: " << Z(&tour, &dist, &plan) << "\n";
+    insertion(&tour, false) ;
+    two_opt_Z(false);
+    pack_iterative(1, 10, 20, false);
+        plan = packing_plan();
+        cout << "PackingPlan 4: " << Z(&tour, &dist, &plan) << "\n";
+    insertion(&tour, false) ;
+    two_opt_Z(false);
+    pack_iterative(1, 10, 20, false);
         plan = packing_plan();
         cout << "PackingPlan 5: " << Z(&tour, &dist, &plan) << "\n";
     } else {
-        LKTour();
-       // two_opt(false);
+        two_opt(false);
         initialise_plan(false, -1.03125);
         two_opt(false);
         initialise_plan(false, -9);
     }
 
+//    insertion(&tour, false) ;
+//    two_opt_Z(true);
+//
+//    pack_iterative(1, 4, 20, true);
+   // two_opt_Z(true);
+   // cout << "Done Two Opt Z" << "\n";
+
+//   return 0;
+
+   //two_opt(true);
+//    vector<Item*> plan = packing_plan();
+//    cout << Z(&tour, &dist, &plan) << "\n";
+
+//    vector<int> id;
+//    vector<pair<double,double> > coord;
+//    for (int i=0; i<cities.size(); i++) {
+//        id.push_back(cities[i].index);
+//        coord.push_back(make_pair(cities[i].xCoord, cities[i].yCoord));
+//    }
+//    LKMatrix mat(coord, id);
+//    mat.optimizeTour();
+//    tour = mat.getTour();
+//
+//    pack_iterative(1, 10, 100);
+//    pack_iterative(1, 140, 140);
+
+//    plan = packing_plan();
+//    cout << Z(&tour, &dist, &plan) << "\n";
+
+//     initialise_plan(true, -5.25);
+ //   initialise_plan(false, 0.2);
+ //   plan = packing_plan();
+ //   cout << Z(&tour, &dist, &plan) << "\n";
+ //   initialise_plan(false, 0.009);
+ //   plan = packing_plan();
+ //   cout << Z(&tour, &dist, &plan) << "\n";
+
     int counts = 0;
     while(true) {
         bitflip(&tour, false);
-        
+
         if (dimension < 500) {
             bitflip(&tour, false);
             bitflip(&tour, false);
@@ -189,7 +203,9 @@ int main(int argc, char* argv[]) {
     outputFile.close();
 }
 
-// c is starting alpha value, delta is size of "jumps", q is max iterations
+// c is starting alpha value
+// delta is size of "jumps"
+// q is maximum number of iterations
 void pack_iterative(double c, double delta, int q, bool output) {
 
     initialise_plan(false, c - delta);
@@ -331,7 +347,8 @@ double Z(vector<int>* tour_in, vector<double>* dist, vector<Item*>* plan) {
     return ret;
 }
 
-// Setting city distance till end of tour && Assigning items to cities
+// Setting city distance till end of tour &&
+// Assigning items to cities
 void dist_end_tour() {
     end_dists = {};
     city_items = {};
