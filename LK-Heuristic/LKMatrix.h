@@ -18,7 +18,7 @@ class LKMatrix {
 
 
   private:
-    vector<int> tour;
+    vector<int> tour_lk;
     vector<vector<int> > edgeFlags;
     vector<pair<double, double> > coords;
     vector<int> ids;

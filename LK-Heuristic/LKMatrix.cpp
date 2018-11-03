@@ -41,7 +41,7 @@ LKMatrix::LKMatrix(vector<pair<double, double> > &coords, vector<int> &ids) {
     for (int j = 0; j < size; j++) {
 
       // Compute the edge distance
-      edgeDistance = sqrt(pow((coords[i].first - coords[j].first), 2) + 
+      edgeDistance = sqrt(pow((coords[i].first - coords[j].first), 2) +
           pow((coords[i].second - coords[j].second), 2));
       edgeDistances[i][j] = edgeDistance;
       edgeDistances[j][i] = edgeDistance;
@@ -98,10 +98,10 @@ void LKMatrix::LKMove(int tourStart) {
     // y_i := (fromV, nextV)
     for (int possibleNextV = tour[fromV]; nextV == -1 && possibleNextV != tourStart; possibleNextV = tour[possibleNextV]) {
       //cout << "Testing " << possibleNextV << endl;
-      //cout << (broken_set.count(make_sorted_pair(fromV, possibleNextV)) == 0) << endl; 
-      //cout << (possibleNextV != fromV) << endl; 
-      //cout << (g + g_local > 0) << endl; 
-      //cout << (joined_set.count(make_sorted_pair(possibleNextV, tour[possibleNextV])) == 0) << endl; 
+      //cout << (broken_set.count(make_sorted_pair(fromV, possibleNextV)) == 0) << endl;
+      //cout << (possibleNextV != fromV) << endl;
+      //cout << (g + g_local > 0) << endl;
+      //cout << (joined_set.count(make_sorted_pair(possibleNextV, tour[possibleNextV])) == 0) << endl;
 
 
       // calculate local gain
@@ -137,7 +137,7 @@ void LKMatrix::LKMove(int tourStart) {
 
       // condition 4(f)
       y_opt_length = edgeDistances[fromV][tourStart]; // y_i_opt
-      
+
       // The tour length if we exchanged the broken edge (x_i)
       // with y_opt, (t_{2i}, t_0)
       g_opt_local = g + (broken_edge_length - y_opt_length);
@@ -176,7 +176,7 @@ void LKMatrix::LKMove(int tourStart) {
 
       // build y_i
       tour[fromV] = nextV;
-      
+
       // set new fromV to t_{2i+1}
       // and out lastNextV to t_{2i}
       lastNextV = nextV;
